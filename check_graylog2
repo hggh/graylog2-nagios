@@ -1,0 +1,118 @@
+#!/usr/bin/env ruby
+# Copyright: 2014 Jonas Genannt <jonas.genannt@capi2name.de>, GPLv2
+
+require 'uri'
+require 'json'
+require 'optparse'
+require 'timeout'
+require 'net/http'
+
+options = {}
+options[:server] = "127.0.0.1"
+options[:port]   = "12900"
+options[:time_warning] = 1.0
+options[:time_critical] = 2.0
+options[:debug] = false
+options[:user] = "admin"
+options[:password] = "yourpassword"
+options[:perf] = false
+@exitcode = 0
+@perfdata = []
+output = ""
+
+def setExit(code)
+	if code <= @exitcode
+		return @exitcode
+	elsif code > @exitcode
+		return code
+	end
+end
+
+OptionParser.new do |opts|
+	opts.banner = "Usage: #{$0} [options]"
+
+	opts.on("-s", "--server [STRING]", "Graylog2 server to check (default: #{options[:server]})" ) do |o|
+		options[:server] = o
+	end
+
+	opts.on("-u", "--user [STRING]", "Graylog2 username (default: #{options[:user]})" ) do |o|
+		options[:user] = o
+	end
+
+	opts.on("-P", "--password [STRING]", "Graylog2 password (default: #{options[:password]})" ) do |o|
+		options[:password] = o
+	end
+
+	opts.on("-p", "--port [STRING]", "Graylog2 server port to check (default: #{options[:port]})" ) do |o|
+		options[:port] = o
+	end
+
+	opts.on("-w", "--time-warning [FLOAT]", "Warning time for respons (default: #{options[:time_warning]})" ) do |o|
+		options[:time_warning] = o.to_f
+	end
+
+	opts.on("-c", "--time-critical [FLOAT]", "Critical time for respons (default: #{options[:time_critical]})" ) do |o|
+		options[:time_critical] = o.to_f
+	end
+
+	opts.on("-d", "--debug", "enable debug output (default: no)") do
+		options[:debug] = true
+	end
+
+	opts.on("-P", "--perf", "Add performance Data (default: no)") do
+		options[:perf] = true
+	end
+end.parse!
+
+if options[:server] == ""
+	puts "UNKNOWN: No server given!"
+	exitcode = setExit(3, exitcode)
+	exit exitcode
+end
+
+uri = URI.parse("http://" + options[:server] + ":" + options[:port].to_s + "/system")
+
+puts "Server URI to Query: " + uri.to_s if options[:debug]
+
+
+time_start = Time.now
+
+begin
+	http = Net::HTTP.new(uri.host, uri.port)
+	request = Net::HTTP::Get.new(uri.request_uri)
+	request.content_type = 'application/json'
+	request.basic_auth options[:user], options[:password]
+	result = http.request(request)
+rescue Errno::ECONNREFUSED => e
+	puts "Critical: Could not connect to #{uri.to_s}"
+	exit 2
+end
+
+
+if result and result.code == "200"
+	begin
+		body = JSON.parse(result.body)
+		if body and body['is_processing'] == true
+			time_end = Time.now
+			if time_end.to_f - time_start.to_f > options[:time_warning]
+			else
+				output = "OK: Graylog2 Server is processing messages"
+			end
+			@perfdata << 'server_id=' +  body['server_id']
+			@perfdata << 'time=' + (time_end.to_f - time_start.to_f).to_s
+		end
+	rescue
+		output = "Critical: could not parse JSON from Graylog2"
+		@exitcode = setExit(2)
+	end
+else
+	output = "Critical: #{uri.to_s} HTTP return code: #{result.code.to_s}"
+	@exitcode = setExit(2)
+end
+
+
+if options[:perf]
+	output = output + " | " + @perfdata.join(";")
+end
+puts output
+exit @exitcode
