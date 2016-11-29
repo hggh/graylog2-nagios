@@ -70,7 +70,7 @@ if options[:server] == ""
 	exit exitcode
 end
 
-uri = URI.parse("http://" + options[:server] + ":" + options[:port].to_s + "/system")
+uri = URI.parse("http://" + options[:server] + ":" + options[:port].to_s + "/api/system")
 
 puts "Server URI to Query: " + uri.to_s if options[:debug]
 
