@@ -98,7 +98,7 @@ if result and result.code == "200"
 			else
 				output = "OK: Graylog2 Server is processing messages"
 			end
-			@perfdata << 'server_id=' +  body['server_id']
+			@perfdata << 'node_id=' +  body['node_id']
 			@perfdata << 'time=' + (time_end.to_f - time_start.to_f).to_s
 		end
 	rescue
