@@ -70,7 +70,7 @@ if options[:server] == ""
 	exit exitcode
 end
 
-uri = URI.parse("http://" + options[:server] + ":" + options[:port].to_s + "/system")
+uri = URI.parse("http://" + options[:server] + ":" + options[:port].to_s + "/api/system")
 
 puts "Server URI to Query: " + uri.to_s if options[:debug]
 
@@ -98,7 +98,7 @@ if result and result.code == "200"
 			else
 				output = "OK: Graylog2 Server is processing messages"
 			end
-			@perfdata << 'server_id=' +  body['server_id']
+			@perfdata << 'node_id=' +  body['node_id']
 			@perfdata << 'time=' + (time_end.to_f - time_start.to_f).to_s
 		end
 	rescue
